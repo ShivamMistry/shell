@@ -18,7 +18,13 @@ size_t strlen(const char* buf) {
     return size;
 }
 
-void tok(const char* str, char* dest, const char* delimiters) {
+void memset(char* ptr, int value, size_t num) {
+    for (int i = 0; i < num; i++) {
+        ptr[i] = value;
+    }
+}
+
+void tok(char* str, char* dest, const char* delimiters) {
     if (str != 0) {
         tokbuffer = str;
     }
@@ -58,20 +64,22 @@ void out(const char* buf) {
 
 int main(void) {
     char strbuf[512];
-    char c;
+    size_t buflen = 0;
+    memset(strbuf,0,512);
     while(1) {
-        for (int i = 0; i < 512; i++) strbuf[i] = 0;
+        memset(strbuf, 0, buflen);
         write_prompt(); 
         size_t pos = 0;
+        char c;
         do {
             read(STDIN, &c, 1);
             strbuf[pos++] = c;
             // TODO: prevent overflow
         } while (c != '\n');
 #if DEBUG
-        write(STDOUT, strbuf, strlen(strbuf));
+        out(strbuf);
 #endif
-        size_t buflen = strlen(strbuf);
+        buflen = strlen(strbuf);
         char token[buflen];
         memset(token, 0, buflen);
         tok(strbuf, token, " \n");
@@ -85,6 +93,7 @@ int main(void) {
                     out(": found token\n");
 #endif
                     tok(0, token, " \n");
+                    // TODO: add args to a list and pass to program
                 }
             } else {
                 out(token);
