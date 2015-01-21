@@ -126,9 +126,10 @@ void parse_cmd(char *cmd) {
 }
 
 int main(void) {
-    char strbuf[512];
+    size_t buf_size = 128;
+    char *strbuf = (char *) malloc(sizeof(char) * buf_size);
     size_t buflen = 0;
-    memset(strbuf,0,512);
+    memset(strbuf,0,buf_size);
     while(1) {
         memset(strbuf, 0, buflen);
         write_prompt(); 
@@ -136,6 +137,10 @@ int main(void) {
         char c;
         do {
             read(STDIN, &c, 1);
+            if (pos >= buf_size) {
+                buf_size *= 2;
+                realloc(stfbuf, buf_size);
+            }
             strbuf[pos++] = c;
             // TODO: prevent overflow
         } while (c != '\n');
