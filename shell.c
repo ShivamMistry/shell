@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <errno.h>
-
+#include <stdlib.h>
 #include "shell.h" 
 
 #if DEBUG
@@ -49,13 +49,18 @@ void tok(char* str, char* dest, const char* delimiters) {
     while (1) {
         char c = __tokbuffer[ptr++];
         if (c == 0) {
+            if (__tokbuffer[ptr-1] == c) {
+                __tokbuffer = 0;
+                dest[0] = 0;
+                return;
+            }
             memcpy(dest, __tokbuffer, ptr-1);
             dest[ptr-1] = 0;
             __tokbuffer = 0;
             return;
         }
         for (int i = 0; i < dellen; i++) {
-            if (c == delimiters[i]) {
+            if (ptr - 1 != 0 && c == delimiters[i]) {
                 memcpy(dest, __tokbuffer, ptr-1);
                 dest[ptr-1] = 0;
                 __tokbuffer = __tokbuffer + ptr;
@@ -70,11 +75,53 @@ void write_prompt(void) {
     write(STDOUT, PROMPT, strlen(PROMPT));
 }
 
-void out(const char* buf) {
+void out(const char *buf) {
     write(STDOUT, buf, strlen(buf));
 }
 
-void parse_cmd(char* cmd) {
+void parse_cmd(char *cmd) {
+    int cmdlen = strlen(cmd);
+    char token[cmdlen];
+    memset(token, 0, cmdlen);
+    tok(cmd, token, " \n");
+    if (token[0] != 0) {
+        size_t max_args = 50;
+        char **argv = (char**) malloc(sizeof(char*) * max_args);
+        size_t argc = 0;
+        while (token[0] != 0) {
+            size_t token_len = strlen(token) + 1;
+            char *ptr = (char*) malloc(sizeof(char) * token_len);
+            memcpy(ptr, token, token_len);
+            if (argc >= max_args) {
+                max_args *= 2;
+                realloc(argv, max_args);
+            }
+            argv[argc++] = ptr;
+            tok(0, token, " \n");
+        }
+        argv[argc] = 0;
+        pid_t pid = fork();
+        size_t loc;
+        if (pid == 0) {
+            // child
+            int val = execvp(argv[0], argv);
+            out("No such command: ");
+            out(argv[0]);
+            out("\n");
+        } else {
+            pid_t tpid;
+            do {
+                tpid = wait(&loc);
+            } while(tpid != pid);
+            for (size_t i = 0; i < argc; i++) {
+                if (argv[i] != 0) {
+                    free(argv[i]);
+                }
+            }
+            free(argv);
+        }
+
+    }
 
 }
 
@@ -94,56 +141,7 @@ int main(void) {
         } while (c != '\n');
         debug(strbuf);
         buflen = strlen(strbuf);
-        char token[buflen];
-        memset(token, 0, buflen);
-        tok(strbuf, token, " \n");
-        if (token[0] != 0) {
-            char argbuf[50][255];
-            size_t argc = 0;
-            memcpy(argbuf[argc++], token, strlen(token)); 
-            while (token[0] != 0) {
-                debug(token);
-                debug(": found token\n");
-                tok(0, token, " \n");
-                memcpy(argbuf[argc++], token, strlen(token));
-            }
-            char** argv = argbuf;
-            argv[argc++] = 0;
-           
-            pid_t pid = fork();
-            size_t loc;
-            if (pid == 0) {
-                // child
-#if DEBUG
-                char str[1024];
-                sprintf(str, "Spawned %s with pid: %d\n", argv[0], pid);
-                debug(str);
-#endif
-                int val = execvp(argv[0], argv);
-                out("Failed to execute: ");
-                out(argv[0]);
-                out("\n");
-                sprintf(str, "Returned: %d\n", val);
-                debug(str);
-                if (val == -1) {
-                    int errsv = errno;
-                    sprintf(str, "Error with %s: %d\n", argv[0], errsv);
-                    debug(str);
-                }
-                
-            } else {
-#if DEBUG
-                char str[255];
-                sprintf(str, "Our pid is: %d\n", pid);
-                debug(str);
-#endif
-                pid_t tpid;
-                do {
-                    tpid = wait(&loc);
-                } while(tpid != pid);
-            }
-
-        }
+        parse_cmd(strbuf);
     }
     return 0;
 }
