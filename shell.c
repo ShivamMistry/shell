@@ -1,10 +1,11 @@
+#include "shell.h"
+#include "strlib.h"
+
 #include <fcntl.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
-#include "shell.h" 
-
 #if DEBUG
 #include <string.h>
 #endif
@@ -15,60 +16,6 @@
 
 
 #define PROMPT "hell > "
-
-char* __tokbuffer;
-
-size_t strlen(const char* buf) {
-    size_t size = 0;
-    while (buf[size++] != 0);
-    return size;
-}
-
-#if !DEBUG
-void memset(char* ptr, int value, size_t num) {
-    for (int i = 0; i < num; i++) {
-        ptr[i] = value;
-    }
-}
-
-static inline void memcpy(char* dest, char* src, size_t num) {
-    for (size_t i = 0; i < num; i++) dest[i] = src[i];
-}
-#endif
-
-void tok(char* str, char* dest, const char* delimiters) {
-    if (str != 0) {
-        __tokbuffer = str;
-    }
-    if (__tokbuffer == 0) {
-        dest[0] = 0;
-        return;
-    }
-    size_t dellen = strlen(delimiters);
-    int ptr = 0;
-    while (1) {
-        char c = __tokbuffer[ptr++];
-        if (c == 0) {
-            if (__tokbuffer[ptr-1] == c) {
-                __tokbuffer = 0;
-                dest[0] = 0;
-                return;
-            }
-            memcpy(dest, __tokbuffer, ptr-1);
-            dest[ptr-1] = 0;
-            __tokbuffer = 0;
-            return;
-        }
-        for (int i = 0; i < dellen; i++) {
-            if (ptr - 1 != 0 && c == delimiters[i]) {
-                memcpy(dest, __tokbuffer, ptr-1);
-                dest[ptr-1] = 0;
-                __tokbuffer = __tokbuffer + ptr;
-                return;
-            }
-        }
-    }
-}
 
 void write_prompt(void) {
     //TODO: grab prompt from an env var
@@ -127,7 +74,7 @@ void parse_cmd(char *cmd) {
 
 int main(void) {
     size_t buf_size = 128;
-    char *strbuf = (char *) malloc(sizeof(char) * buf_size);
+    char* strbuf = (char *) malloc(sizeof(char) * buf_size);
     size_t buflen = 0;
     memset(strbuf,0,buf_size);
     while(1) {
@@ -139,7 +86,7 @@ int main(void) {
             read(STDIN, &c, 1);
             if (pos >= buf_size) {
                 buf_size *= 2;
-                realloc(stfbuf, buf_size);
+                realloc(strbuf, buf_size);
             }
             strbuf[pos++] = c;
             // TODO: prevent overflow
